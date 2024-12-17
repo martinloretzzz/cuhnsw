@@ -4,6 +4,12 @@
 # This source code is licensed under the Apache 2.0 license found in the
 # LICENSE file in the root directory of this source tree.
 
+# conda install -c conda-forge libstdcxx-ng
+# pip install setuptools==58.5.3
+# pip install h5py fire pandas hnswlib
+# python example1.py download
+# python example1.py run_experiments
+
 # pylint: disable=no-name-in-module,logging-format-truncated
 import os
 from os.path import join as pjoin
@@ -23,7 +29,7 @@ LOGGER = aux.get_logger()
 
 NUM_DATA = 1183514
 DATA_FILE = "glove-50-angular.hdf5"
-DIST_TYPE = "cosine"
+DIST_TYPE = "dot"
 
 # NUM_DATA = 1000000
 # DATA_FILE = "sift-128-euclidean.hdf5"
@@ -72,7 +78,7 @@ def run_cpu_inference(topk=100, ef_search=300, index_file=INDEX_FILE,
   queries = h5f["test"][:, :].astype(np.float32)
   neighbors = h5f["neighbors"][:, :topk].astype(np.int32)
   h5f.close()
-  hl0 = hnswlib.Index(space=DIST_TYPE, dim=queries.shape[1])
+  hl0 = hnswlib.Index(space="ip", dim=queries.shape[1])
   LOGGER.info("load %s by hnswlib", index_path)
   num_queries = queries.shape[0]
   hl0.load_index(index_path, max_elements=num_data)
@@ -105,7 +111,7 @@ def run_cpu_inference_large(topk=100, index_file=INDEX_FILE, ef_search=300,
   queries = np.random.normal(size=(num_queries, num_dims)).astype(np.float32)
   queries /= np.linalg.norm(queries, axis=1)[:, None]
 
-  hl0 = hnswlib.Index(space=DIST_TYPE, dim=queries.shape[1])
+  hl0 = hnswlib.Index(space="ip", dim=queries.shape[1])
   LOGGER.info("load %s by hnswlib", index_path)
   hl0.load_index(index_path, max_elements=NUM_DATA)
   hl0.set_ef(ef_search)
@@ -126,7 +132,7 @@ def run_cpu_training(ef_const=150, num_threads=-1):
   h5f = h5py.File(data_path, "r")
   data = h5f["train"][:, :].astype(np.float32)
   h5f.close()
-  hl0 = hnswlib.Index(space=DIST_TYPE, dim=data.shape[1])
+  hl0 = hnswlib.Index(space="ip", dim=data.shape[1])
   num_data = data.shape[0]
   data /= np.linalg.norm(data, axis=1)[:, None]
   hl0.init_index(max_elements=num_data, ef_construction=ef_const, M=12)
@@ -199,6 +205,7 @@ def run_gpu_inference2(topk=5, index_file="cuhnsw.index", ef_search=300):
         _dist = np.sqrt(_dist)
       elif DIST_TYPE == "dot":
         real_dist = data[_nn].dot(queries[idx])
+        # _dist = -_dist
       print(f"rank {_idx + 1}. neighbor: {_nn}, dist by lib: {_dist}, "
             f"actual dist: {real_dist}")
 
