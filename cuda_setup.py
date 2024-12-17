@@ -12,9 +12,10 @@ import logging
 import os
 import sys
 
-from distutils import ccompiler, errors, msvccompiler, unixccompiler
+from distutils import ccompiler, errors, unixccompiler
+# from distutils import ccompiler, errors, msvccompiler, unixccompiler
 from setuptools.command.build_ext import build_ext as setuptools_build_ext
-
+# nvcc --list-gpu-arch
 
 HALF_PRECISION = False
 
@@ -121,30 +122,27 @@ def locate_cuda():
                 'nvcc': nvcc,
                 'include': os.path.join(home, 'include'),
                 'lib64':   os.path.join(home, 'lib64')}
-  cuda_ver = os.path.basename(os.path.realpath(home)).split("-")[1].split(".")
-  major, minor = int(cuda_ver[0]), int(cuda_ver[1])
-  cuda_ver = 10 * major + minor
-  assert cuda_ver >= 70, f"too low cuda ver {major}.{minor}"
-  print(f"cuda_ver: {major}.{minor}")
-  arch = get_cuda_arch(cuda_ver)
-  sm_list = get_cuda_sm_list(cuda_ver)
-  compute = get_cuda_compute(cuda_ver)
-  post_args = [f"-arch=sm_{arch}"] + \
-    [f"-gencode=arch=compute_{sm},code=sm_{sm}" for sm in sm_list] + \
-    [f"-gencode=arch=compute_{compute},code=compute_{compute}",
-     "--ptxas-options=-v", "-O2"]
+  #cuda_ver = os.path.basename(os.path.realpath(home)).split("-")[1].split(".")
+  #major, minor = int(cuda_ver[0]), int(cuda_ver[1])
+  #cuda_ver = 10 * major + minor
+  #assert cuda_ver >= 70, f"too low cuda ver {major}.{minor}"
+  #print(f"cuda_ver: {major}.{minor}")
+  #arch = get_cuda_arch(cuda_ver)
+  #sm_list = get_cuda_sm_list(cuda_ver)
+  #compute = get_cuda_compute(cuda_ver)
+  post_args = [f"-arch=native", "--ptxas-options=-v", "-O2"]
   print(f"nvcc post args: {post_args}")
   if HALF_PRECISION:
     post_args = [flag for flag in post_args if "52" not in flag]
 
   if sys.platform == "win32":
     cudaconfig['lib64'] = os.path.join(home, 'lib', 'x64')
-    post_args += ['-Xcompiler', '/MD', '-std=c++14',  "-Xcompiler", "/openmp"]
+    post_args += ['-Xcompiler', '/MD', '-std=c++17',  "-Xcompiler", "/openmp"]
     if HALF_PRECISION:
       post_args += ["-Xcompiler", "/D HALF_PRECISION"]
   else:
     post_args += ['-c', '--compiler-options', "'-fPIC'",
-                  "--compiler-options", "'-std=c++14'"]
+                  "--compiler-options", "'-std=c++17'"]
     if HALF_PRECISION:
       post_args += ["--compiler-options", "'-D HALF_PRECISION'"]
   for k, val in cudaconfig.items():
@@ -181,7 +179,7 @@ class _UnixCCompiler(unixccompiler.UnixCCompiler):
     finally:
       self.compiler_so = _compiler_so
 
-
+"""
 class _MSVCCompiler(msvccompiler.MSVCCompiler):
   _cu_extensions = ['.cu']
 
@@ -231,7 +229,7 @@ class _MSVCCompiler(msvccompiler.MSVCCompiler):
 
     # Return compiled object filenames.
     return other_objects + cu_objects
-
+"""
 
 class CudaBuildExt(setuptools_build_ext):
   """Custom `build_ext` command to include CUDA C source files."""
@@ -246,7 +244,8 @@ class CudaBuildExt(setuptools_build_ext):
             if sys.platform != 'win32':
               CCompiler = _UnixCCompiler
             else:
-              CCompiler = _MSVCCompiler
+              pass
+              # CCompiler = _MSVCCompiler
             return CCompiler(
               None, kwargs['dry_run'], kwargs['force'])
         return _wrap_new_compiler
